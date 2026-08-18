@@ -4,15 +4,19 @@ import { rmSync } from "node:fs";
 import { spawn } from "node:child_process";
 
 function exec(argv0, argv) {
-  const proc = spawn(argv0, argv, {
-    stdio: ["ignore", "inherit", "inherit"],
-    shell: true,
-  });
+  return new Promise((resolve, reject) => {
+    const proc = spawn(argv0, argv, {
+      stdio: ["ignore", "inherit", "inherit"],
+    });
 
-  proc.on("close", (code) => {
-    if (code != 0) {
-      console.error(`exit code: ${code}`);
-    }
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${argv0} exited with code ${code}`));
+      }
+    });
   });
 }
 

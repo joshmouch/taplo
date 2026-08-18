@@ -9,9 +9,9 @@ use anyhow::anyhow;
 use parking_lot::{RwLock, RwLockReadGuard};
 use regex::Regex;
 use semver::Version;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{borrow::Cow, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use tap::Tap;
 use taplo::dom::Node;
 use tokio::sync::Semaphore;
@@ -485,7 +485,7 @@ pub struct TaploSchemaExtraInfo {
 #[serde(rename_all = "camelCase")]
 pub struct SchemaStoreCatalog {
     #[serde(rename = "$schema")]
-    pub schema: SchemaStoreCatalogSchema,
+    pub schema: Url,
     pub schemas: Vec<SchemaStoreSchemaMeta>,
 }
 
@@ -503,41 +503,48 @@ pub struct SchemaStoreSchemaMeta {
     pub versions: IndexMap<String, Url>,
 }
 
-pub const SCHEMA_STORE_CATALOG_SCHEMA_URL: &str =
-    "https://www.schemastore.org/schema-catalog.json";
-
-#[derive(Debug, Clone, Copy)]
-pub struct SchemaStoreCatalogSchema;
-
-impl<'de> Deserialize<'de> for SchemaStoreCatalogSchema {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = Cow::<'static, str>::deserialize(deserializer)?;
-
-        if s != SCHEMA_STORE_CATALOG_SCHEMA_URL {
-            return Err(Error::custom(format!(
-                "expected $schema to be {SCHEMA_STORE_CATALOG_SCHEMA_URL}"
-            )));
-        }
-
-        Ok(SchemaStoreCatalogSchema)
-    }
-}
-
-impl Serialize for SchemaStoreCatalogSchema {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        SCHEMA_STORE_CATALOG_SCHEMA_URL.serialize(serializer)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct SchemaAssociation {
     pub meta: Value,
     pub url: Url,
     pub priority: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SchemaCatalog, SchemaStoreCatalog};
+    use serde_json::json;
+
+    #[test]
+    fn schema_store_catalog_accepts_schema_identifier_urls() {
+        let identifiers = [
+            "https://json.schemastore.org/schema-catalog.json",
+            "https://www.schemastore.org/schema-catalog.json",
+            "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/schema-catalog.json",
+        ];
+
+        for identifier in identifiers {
+            let catalog: SchemaCatalog = serde_json::from_value(json!({
+                "$schema": identifier,
+                "schemas": []
+            }))
+            .unwrap();
+
+            let SchemaCatalog::SchemaStore(SchemaStoreCatalog { schema, .. }) = catalog else {
+                panic!("expected a SchemaStore catalog");
+            };
+
+            assert_eq!(schema.as_str(), identifier);
+        }
+    }
+
+    #[test]
+    fn schema_store_catalog_rejects_invalid_schema_identifier_urls() {
+        let result = serde_json::from_value::<SchemaStoreCatalog>(json!({
+            "$schema": "not a URL",
+            "schemas": []
+        }));
+
+        assert!(result.is_err());
+    }
 }

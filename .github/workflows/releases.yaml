@@ -422,6 +422,7 @@ jobs:
       - name: Install latest Rust toolchain
         run: |
           rustup update --no-self-update
+          rustup target add wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Install Node.js
         uses: actions/setup-node@v4

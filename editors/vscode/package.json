@@ -2,7 +2,7 @@
   "name": "even-better-toml",
   "displayName": "Even Better TOML",
   "description": "Fully-featured TOML support",
-  "version": "0.21.2",
+  "version": "0.21.3",
   "autoTag": {
     "enabled": true
   },
@@ -397,8 +397,9 @@
   "main": "./dist/extension.js",
   "browser": "./dist/browser-extension.js",
   "scripts": {
-    "vscode:prepublish": "yarn build",
+    "vscode:prepublish": "node ../../js/.yarn/releases/yarn-4.0.2.cjs build",
     "open-in-browser": "vscode-test-web --extensionDevelopmentPath=. .",
+    "build:lsp": "node ../../js/.yarn/releases/yarn-4.0.2.cjs --cwd ../../js install --immutable && node ../../js/.yarn/releases/yarn-4.0.2.cjs --cwd ../../js/core build && node ../../js/.yarn/releases/yarn-4.0.2.cjs --cwd ../../js/lsp prepublish",
     "build:syntax": "ts-node --project node.tsconfig.json src/syntax/index.ts",
     "build:browser-extension": "rollup -c rollup.config.browser-extension.mjs",
     "build:browser-server": "rollup -c rollup.config.browser-server.mjs",
@@ -406,7 +407,6 @@
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
-    "@taplo/lsp": "^0.8.0",
     "deep-equal": "^2.2.3",
     "encoding": "^0.1.13",
     "fast-glob": "^3.3.2",
@@ -418,6 +418,7 @@
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-replace": "^5.0.5",
+    "@taplo/lsp": "portal:../../js/lsp",
     "@types/deep-equal": "^1.0.4",
     "@types/node": "^20.11.9",
     "@types/vscode": "^1.90.0",
