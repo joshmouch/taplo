@@ -397,9 +397,8 @@
   "main": "./dist/extension.js",
   "browser": "./dist/browser-extension.js",
   "scripts": {
-    "vscode:prepublish": "node ../../js/.yarn/releases/yarn-4.0.2.cjs build",
+    "vscode:prepublish": "node scripts/build.mjs",
     "open-in-browser": "vscode-test-web --extensionDevelopmentPath=. .",
-    "build:lsp": "node ../../js/.yarn/releases/yarn-4.0.2.cjs --cwd ../../js install --immutable && node ../../js/.yarn/releases/yarn-4.0.2.cjs --cwd ../../js/core build && node ../../js/.yarn/releases/yarn-4.0.2.cjs --cwd ../../js/lsp prepublish",
     "build:syntax": "ts-node --project node.tsconfig.json src/syntax/index.ts",
     "build:browser-extension": "rollup -c rollup.config.browser-extension.mjs",
     "build:browser-server": "rollup -c rollup.config.browser-server.mjs",

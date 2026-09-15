@@ -10,11 +10,15 @@ function exec(argv0, argv) {
     });
 
     proc.on("error", reject);
-    proc.on("close", (code) => {
+    proc.on("close", (code, signal) => {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`${argv0} exited with code ${code}`));
+        const command = [argv0, ...argv].join(" ");
+        const result = signal
+          ? `was terminated by ${signal}`
+          : `exited with code ${code}`;
+        reject(new Error(`${command} ${result}`));
       }
     });
   });

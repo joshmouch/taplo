@@ -122,4 +122,6 @@ pub async fn set_trace<E: Environment>(
     _context: Context<World<E>>,
     _params: Params<SetTraceParams>,
 ) {
+    // Taplo does not emit trace events, but accepting the standard notification
+    // avoids reporting a supported client message as unhandled.
 }

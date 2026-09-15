@@ -5,7 +5,7 @@
   "scripts": {
     "build": "yarn rollup --silent -c rollup.config.mjs",
     "test": "node test/lsp-json-rpc.test.mjs",
-    "prepublish": "RELEASE=true yarn build && yarn test"
+    "prepack": "RELEASE=true yarn build && yarn test"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

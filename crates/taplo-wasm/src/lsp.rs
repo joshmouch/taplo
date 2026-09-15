@@ -64,6 +64,8 @@ impl Sink<rpc::Message> for WasmLspInterface {
         message: rpc::Message,
     ) -> Result<(), Self::Error> {
         let this = JsValue::null();
+        // LSP messages cross a JSON boundary, so keep nulls and maps
+        // representable by ordinary JavaScript values.
         let message = message
             .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
             .unwrap();

@@ -9,7 +9,7 @@ use anyhow::anyhow;
 use parking_lot::{RwLock, RwLockReadGuard};
 use regex::Regex;
 use semver::Version;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error, Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{path::Path, sync::Arc};
 use tap::Tap;
@@ -485,7 +485,7 @@ pub struct TaploSchemaExtraInfo {
 #[serde(rename_all = "camelCase")]
 pub struct SchemaStoreCatalog {
     #[serde(rename = "$schema")]
-    pub schema: Url,
+    pub schema: SchemaStoreCatalogSchema,
     pub schemas: Vec<SchemaStoreSchemaMeta>,
 }
 
@@ -501,6 +501,37 @@ pub struct SchemaStoreSchemaMeta {
     pub file_match: Vec<String>,
     #[serde(default)]
     pub versions: IndexMap<String, Url>,
+}
+
+pub const SCHEMA_STORE_CATALOG_SCHEMA_URL: &str = "https://www.schemastore.org/schema-catalog.json";
+
+#[derive(Debug, Clone, Copy)]
+pub struct SchemaStoreCatalogSchema;
+
+impl<'de> Deserialize<'de> for SchemaStoreCatalogSchema {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let schema = Url::deserialize(deserializer)?;
+
+        if !schema.path().ends_with("/schema-catalog.json") {
+            return Err(Error::custom(
+                "expected $schema URL path to end with /schema-catalog.json",
+            ));
+        }
+
+        Ok(SchemaStoreCatalogSchema)
+    }
+}
+
+impl Serialize for SchemaStoreCatalogSchema {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        SCHEMA_STORE_CATALOG_SCHEMA_URL.serialize(serializer)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -526,25 +557,54 @@ mod tests {
         for identifier in identifiers {
             let catalog: SchemaCatalog = serde_json::from_value(json!({
                 "$schema": identifier,
-                "schemas": []
+                "schemas": [{
+                    "name": "Example",
+                    "description": "Example schema",
+                    "url": "https://example.com/example.schema.json",
+                    "fileMatch": ["example.toml"]
+                }]
             }))
             .unwrap();
 
-            let SchemaCatalog::SchemaStore(SchemaStoreCatalog { schema, .. }) = catalog else {
+            let SchemaCatalog::SchemaStore(SchemaStoreCatalog { schemas, .. }) = catalog else {
                 panic!("expected a SchemaStore catalog");
             };
 
-            assert_eq!(schema.as_str(), identifier);
+            assert_eq!(schemas[0].file_match, ["example.toml"]);
         }
     }
 
     #[test]
     fn schema_store_catalog_rejects_invalid_schema_identifier_urls() {
-        let result = serde_json::from_value::<SchemaStoreCatalog>(json!({
-            "$schema": "not a URL",
-            "schemas": []
-        }));
+        for identifier in ["not a URL", "https://example.com/taplo-catalog.schema.json"] {
+            let result = serde_json::from_value::<SchemaStoreCatalog>(json!({
+                "$schema": identifier,
+                "schemas": []
+            }));
 
-        assert!(result.is_err());
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn schema_identifier_does_not_change_taplo_catalog_format() {
+        let catalog: SchemaCatalog = serde_json::from_value(json!({
+            "$schema": "https://example.com/taplo-catalog.schema.json",
+            "schemas": [{
+                "title": "Example",
+                "description": "Example schema",
+                "url": "https://example.com/example.schema.json",
+                "urlHash": "example",
+                "authors": [],
+                "patterns": [".*example\\.toml$"]
+            }]
+        }))
+        .unwrap();
+
+        let SchemaCatalog::Taplo(catalog) = catalog else {
+            panic!("expected a Taplo catalog");
+        };
+
+        assert_eq!(catalog.schemas[0].extra.patterns, [".*example\\.toml$"]);
     }
 }

@@ -8,7 +8,9 @@ const yarn = fileURLToPath(
 );
 
 unlink("./dist");
-await exec(process.execPath, [yarn, "build:lsp"]);
+await exec(process.execPath, [yarn, "--cwd", "../../js", "install", "--immutable"]);
+await exec(process.execPath, [yarn, "--cwd", "../../js/core", "build"]);
+await exec(process.execPath, [yarn, "--cwd", "../../js/lsp", "prepack"]);
 await exec(process.execPath, [yarn, "build:syntax"]);
 await exec(process.execPath, [yarn, "build:node"]);
 await exec(process.execPath, [yarn, "build:browser-extension"]);

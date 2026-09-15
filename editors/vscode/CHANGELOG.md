@@ -4,10 +4,10 @@
 
 ### Fixes
 
-- Accept SchemaStore catalog schema identifiers as URLs instead of requiring one exact host.
+- Fix SchemaStore catalog loading when the catalog's `$schema` URL host changes.
 - Build the bundled language server from the repository source so extension releases include current Taplo fixes.
 - Serialize language-server payloads as JSON-compatible objects instead of JavaScript maps.
-- Handle standard trace notifications without logging unsupported-handler warnings.
+- Avoid unsupported-handler warnings for standard `$/setTrace` notifications.
 
 ## 0.21.2
 

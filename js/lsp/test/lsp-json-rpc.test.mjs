@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 const module = await import("../dist/index.js");
 const { TaploLsp } = module.default ?? module["module.exports"];
 
-function nextMessage(messages, waiters, predicate) {
+function nextMessage(messages, waiters, label, predicate) {
   return new Promise((resolve, reject) => {
     const existing = messages.find(predicate);
     if (existing) {
@@ -11,12 +11,7 @@ function nextMessage(messages, waiters, predicate) {
       return;
     }
 
-    const timeout = setTimeout(
-      () => reject(new Error("timed out waiting for an LSP message")),
-      5_000
-    );
-
-    waiters.add(message => {
+    const waiter = message => {
       if (predicate(message)) {
         clearTimeout(timeout);
         resolve(message);
@@ -24,8 +19,25 @@ function nextMessage(messages, waiters, predicate) {
       }
 
       return false;
-    });
+    };
+    const timeout = setTimeout(() => {
+      waiters.delete(waiter);
+      reject(new Error(`timed out waiting for ${label}`));
+    }, 5_000);
+
+    waiters.add(waiter);
   });
+}
+
+async function waitUntil(label, predicate) {
+  const deadline = Date.now() + 5_000;
+
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out waiting for ${label}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
 }
 
 const messages = [];
@@ -41,8 +53,8 @@ try {
   lsp = await TaploLsp.initialize(
     {
       cwd: () => process.cwd(),
-      envVar: name => process.env[name],
-      envVars: () => Object.entries(process.env),
+      envVar: name => (name === "RUST_LOG" ? "warn" : process.env[name]),
+      envVars: () => Object.entries({ ...process.env, RUST_LOG: "warn" }),
       findConfigFile: () => undefined,
       glob: () => [],
       isAbsolute: path => path.startsWith("/"),
@@ -91,6 +103,7 @@ lsp.send({
 const initialize = await nextMessage(
   messages,
   waiters,
+  "the initialize response",
   message => message.id === 1
 );
 assert.equal(initialize.result.serverInfo.name, "Taplo");
@@ -101,6 +114,7 @@ lsp.send({ jsonrpc: "2.0", method: "initialized", params: {} });
 const configuration = await nextMessage(
   messages,
   waiters,
+  "the workspace/configuration request",
   message => message.method === "workspace/configuration"
 );
 assert.deepEqual(configuration.params.items, [
@@ -109,10 +123,21 @@ assert.deepEqual(configuration.params.items, [
 
 lsp.send({
   jsonrpc: "2.0",
+  method: "taplo/test-unsupported-notification",
+  params: {},
+});
+await waitUntil(
+  "the unsupported-notification warning",
+  () => /no notification handler/.test(stderr.join(""))
+);
+stderr.length = 0;
+
+lsp.send({
+  jsonrpc: "2.0",
   method: "$/setTrace",
   params: { value: "off" },
 });
-await new Promise(resolve => setTimeout(resolve, 0));
+await new Promise(resolve => setTimeout(resolve, 10));
 assert.doesNotMatch(stderr.join(""), /no notification handler/);
 
 lsp.dispose();
